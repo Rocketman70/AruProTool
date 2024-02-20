@@ -1,129 +1,19 @@
 import serial
 import time
-import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
 from openpyxl import load_workbook
 import subprocess
-import threading
+from Classes import APNamerGUI 
 
-
-# Define CustomTkinter class with necessary methods and attributes
-class CustomTkinter:
-    @staticmethod
-    def set_appearance_mode(mode):
-        CustomTkinter.appearance_mode = mode
-
-    @staticmethod
-    def set_default_color_theme(theme):
-        CustomTkinter.default_color_theme = theme
-
-    @staticmethod
-    def get_color(key):
-        if CustomTkinter.appearance_mode == "dark":
-            if key == "background":
-                return "#121212"
-            elif key == "foreground":
-                return "#FFFFFF"
-            elif key == "accent":
-                return "#2196F3"
-        else:
-            if key == "background":
-                return "#FFFFFF"
-            elif key == "foreground":
-                return "#000000"
-            elif key == "accent":
-                return "#3f51b5"
-
-    appearance_mode = "default"
-    default_color_theme = "default"
-###
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-# Define APNamerGUI class inheriting from ctk.CTk
-class APNamerGUI(ctk.CTk):
-    WIDTH = 800
-    HEIGHT = 900
-
-    def __init__(self):
-        super().__init__()
-        self.title("AP Namer")
-        self.geometry(f"{APNamerGUI.WIDTH}x{APNamerGUI.HEIGHT}")
-        CustomTkinter.set_appearance_mode("dark")
-        CustomTkinter.set_default_color_theme("red")
-
-        self.tabControl = ctk.CTkTabview(self)
-        self.tabControl.pack(expand=1, fill="both")
-
-        tab_1 = self.tabControl.add("Intro")
-        tab_2 = self.tabControl.add("Excel/Output")
-
-        self.com_port = None
-        self.file_path = None  # Store the current Excel file path
-
-        intro_text = """
-        Welcome to AP Namer!
-
-        1. Plug in serial cable to computer
-        2. Select Excel file in next tab
-        3. Plug serial cable into AP
-        4. Follow prompts, plug AP into power
-        5. Click restart when you want to provision the next AP
-        
-        *Once current AP is done provisioning you may select a new Excel file and use that
-
-
-        P.S. Don't forget to feed your pet hamster while the program runs!🐹
-        """
-
-        intro_textbox = ctk.CTkTextbox(tab_1, font=("Lucida Console", 16), wrap=tk.WORD, height=20)
-        intro_textbox.insert(tk.END, intro_text)
-        intro_textbox.configure(state=tk.DISABLED)
-        intro_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.excel_button = ctk.CTkButton(tab_2, text="Select Excel File", command=self.select_excel_file)
-        self.excel_button.pack(pady=4)
-        
-        self.restart_button = ctk.CTkButton(tab_2, text="Restart", command=self.restart)
-        self.restart_button.pack(pady=4)
-        
-        self.output_textbox = ctk.CTkTextbox(tab_2, font=("Lucida Console", 16), wrap=tk.WORD, height=20)
-        self.output_textbox.configure(state=tk.NORMAL)
-        self.output_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
-
-        self.com_port_thread = threading.Thread(target=self.check_com_ports)
-        self.com_port_thread.daemon = True
-        self.com_port_thread.start()
-###
-#
-#
-#
-#
-#
-#
-#
-#
-# Begin functions 
-#
-###
-
-    def restart(self):
+def restart(self):
         # Clear the output textbox
         self.output_textbox.delete(1.0, tk.END)
         # Restart the application with the same Excel file and COM port
         self.start_serial(self.com_port, self.file_path)
         self.check_com_ports()
 
-    def select_excel_file(self):
+def select_excel_file(self):
         file_path = filedialog.askopenfilename(title="Select Excel file", filetypes=[("Excel Files", "*.xlsx")])
         if file_path:
             self.output_textbox.delete(1.0, tk.END)
@@ -131,11 +21,11 @@ class APNamerGUI(ctk.CTk):
             self.file_path = file_path  # Update the stored file path
             self.process_excel_file(file_path)
 
-    def update_output(self, message):
+def update_output(self, message):
         self.output_textbox.insert(tk.END, message + '\n')
         self.output_textbox.see(tk.END)
 
-    def check_com_ports(self):
+def check_com_ports(self):
         first_instance_find_com = True
         while True:
             self.com_port = self.find_com_port()
@@ -148,7 +38,7 @@ class APNamerGUI(ctk.CTk):
                 self.update_output("No COM Port found")
             time.sleep(1)
 
-    def process_excel_file(self, file_path):
+def process_excel_file(self, file_path):
         if self.com_port:
             self.start_serial(self.com_port, file_path)
         else:
@@ -156,7 +46,7 @@ class APNamerGUI(ctk.CTk):
 
 
     #Use powershell script to find COM port and strip result to use 'COMx'
-    def find_com_port(self):
+def find_com_port(self):
         powershell_cmd = [
             'powershell.exe',
             '-Command',
@@ -194,7 +84,7 @@ class APNamerGUI(ctk.CTk):
     #Look for columns MAC, AP Name, and AP Group
     #Look for MAC row, give AP {name} {group} in MAC row, save 
     #Give the user the results
-    def process_mac(self, mac_to_match, com_port, wb):
+def process_mac(self, mac_to_match, com_port, wb):
         self.excel_button.configure(state=tk.DISABLED) ## Disable user control to prevent unresponsive window
         self.restart_button.configure(state=tk.DISABLED)
 
@@ -260,7 +150,7 @@ class APNamerGUI(ctk.CTk):
     #Open COM
     #Stop the autoboot
     #Find MAC and pass 
-    def start_serial(self, com_port, file_path):
+def start_serial(self, com_port, file_path):
         self.excel_button.configure(state=tk.DISABLED) ## Disable user control to prevent unresponsive window
         self.restart_button.configure(state=tk.DISABLED)
         
@@ -297,7 +187,7 @@ class APNamerGUI(ctk.CTk):
 
                 response = ser.read_all().decode()
 
-                ser.close()  # Close the serial port properly
+                ser.close()  #This will not work without this line. It will 're-open' the already being used COM port.
 
                 mac_start_index = response.find("ethaddr=")
                 if mac_start_index != -1:
@@ -320,9 +210,6 @@ class APNamerGUI(ctk.CTk):
             self.restart_button.configure(state=tk.ACTIVE)
 
 
-
-
-# Check if the script is executed directly
 if __name__ == "__main__":
-    gui = APNamerGUI()
-    gui.mainloop()
+        gui = APNamerGUI()
+        gui.mainloop()
