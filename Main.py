@@ -7,9 +7,6 @@ from openpyxl import load_workbook
 import subprocess
 import threading
 
-#
-# TO DO: strip print env result for name, group and mac
-#
 
 # Define CustomTkinter class with necessary methods and attributes
 class CustomTkinter:
@@ -40,7 +37,7 @@ class CustomTkinter:
 
     appearance_mode = "default"
     default_color_theme = "default"
-#
+###
 #
 #
 #
@@ -106,6 +103,7 @@ class APNamerGUI(ctk.CTk):
         self.com_port_thread = threading.Thread(target=self.check_com_ports)
         self.com_port_thread.daemon = True
         self.com_port_thread.start()
+###
 #
 #
 #
@@ -114,10 +112,9 @@ class APNamerGUI(ctk.CTk):
 #
 #
 #
+# Begin functions 
 #
-#
-#
-#
+###
 
     def restart(self):
         # Clear the output textbox
@@ -157,6 +154,8 @@ class APNamerGUI(ctk.CTk):
         else:
             self.update_output("No COM port found. Exiting...")
 
+
+    #Use powershell script to find COM port and strip result to use 'COMx'
     def find_com_port(self):
         powershell_cmd = [
             'powershell.exe',
@@ -176,7 +175,7 @@ class APNamerGUI(ctk.CTk):
             }
             '''
         ]
-
+        #Strip result logic
         try:
             result = subprocess.check_output(powershell_cmd, text=True)
             lines = result.strip().split('\n')
@@ -192,6 +191,9 @@ class APNamerGUI(ctk.CTk):
             print(f"Error: {e}")
             return None
 
+    #Look for columns MAC, AP Name, and AP Group
+    #Look for MAC row, give AP {name} {group} in MAC row, save 
+    #Give the user the results
     def process_mac(self, mac_to_match, com_port, wb):
         self.excel_button.configure(state=tk.DISABLED) ## Disable user control to prevent unresponsive window
         self.restart_button.configure(state=tk.DISABLED)
@@ -199,6 +201,7 @@ class APNamerGUI(ctk.CTk):
         sheet = wb.active
         headers = {cell.value: cell.column for cell in sheet[1]}
 
+        #Edit column names here
         mac_column_index = headers.get("MAC")
         name_column_index = headers.get("AP Name")
         group_column_index = headers.get("AP Group")
@@ -227,8 +230,23 @@ class APNamerGUI(ctk.CTk):
                     ser.write(b"printenv \r\n")
                     time.sleep(1)
 
+                    #Give provided name/group/mac : source : AP
                     response = ser.read_all().decode()
-                    self.update_output(response)
+
+                    provided_name = response.find("name=")
+                    name_endIndex = response.find("\n", provided_name)
+                    actualName = response[provided_name:name_endIndex]
+                    
+                    provided_group = response.find("group=")
+                    group_endIndex = response.find("\n", provided_group)
+                    actualGroup = response[provided_group:group_endIndex]
+                    
+                    provided_mac = response.find("ethaddr=")
+                    mac_endIndex = response.find("\n", provided_mac)
+                    actualMac = response[provided_mac:mac_endIndex]
+                    
+                    #Pass name, group, MAC and activate buttons
+                    self.update_output("Extracted name: " + actualName + "Extracted group" + actualGroup + "Extracted Mac" + actualMac)
                     self.excel_button.configure(state=tk.ACTIVE)
                     self.restart_button.configure(state=tk.ACTIVE)
                 break
@@ -237,6 +255,11 @@ class APNamerGUI(ctk.CTk):
             self.excel_button.configure(state=tk.ACTIVE)
             self.restart_button.configure(state=tk.ACTIVE)
 
+
+    #Load Excel file
+    #Open COM
+    #Stop the autoboot
+    #Find MAC and pass 
     def start_serial(self, com_port, file_path):
         self.excel_button.configure(state=tk.DISABLED) ## Disable user control to prevent unresponsive window
         self.restart_button.configure(state=tk.DISABLED)
