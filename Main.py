@@ -7,6 +7,10 @@ from openpyxl import load_workbook
 import subprocess
 import threading
 
+#
+# TO DO: strip print env result for name, group and mac
+#
+
 # Define CustomTkinter class with necessary methods and attributes
 class CustomTkinter:
     @staticmethod
