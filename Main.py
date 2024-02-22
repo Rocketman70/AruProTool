@@ -235,10 +235,12 @@ class APNamerGUI(ctk.CTk):
             '''
             ]
             #Strip result logic
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             try:
-                result = subprocess.check_output(powershell_cmd, text=True)
-                line = result.strip().split('\n')
-                for line in result.strip().split('\n'):
+                result = subprocess.check_output(powershell_cmd, text=True, startupinfo=startupinfo)
+                lines = result.strip().split('\n')
+                for line in lines:
                     if "USB Serial Port" in line:
                         com_port_index = line.find("(COM")
                         if com_port_index != -1:
