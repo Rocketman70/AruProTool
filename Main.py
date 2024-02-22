@@ -58,6 +58,7 @@ class APNamerGUI(ctk.CTk):
         CustomTkinter.set_appearance_mode("dark")
         CustomTkinter.set_default_color_theme("red")
 
+
         self.tabControl = ctk.CTkTabview(self)
         self.tabControl.pack(expand=1, fill="both")
 
@@ -69,6 +70,7 @@ class APNamerGUI(ctk.CTk):
         self.file_path = None  # Store the current Excel file path
         
         self.Disabled = False #Toggle function
+        self.Override_Used = False # has the COM port been overriden 
 
         intro_text = """
         Welcome to AP Namer!
@@ -77,16 +79,23 @@ class APNamerGUI(ctk.CTk):
         2. Select Excel file in next tab
         3. Plug serial cable into AP
         4. Follow prompts, plug AP into power
-        5. Click restart when you want to provision the next AP
+        5. Click restart when you want to provision the next AP, it will use the SAME port
         
         *Clicking on the window during provisioning will cause a "Not responding" Windows prompt until the AP is provisioned
-
+        *Use the manual port tab if AruProTool is not finding the COM port you have plugged in
         """
 
         manual_override_text = """
         This is for if the program is trying to use the incorrect COM port or one that is already in use.
 
         Windows users should type COMx, eg. COM1,COM2 - all uppercase, no whitespaces.
+
+        This does not forcefully open a COM port, rather it allows you to select a port manually. Check device manager to see 
+        appropriate ports named:
+        USB Serial...(COMx) --AP 5xx series 
+        or
+        Prolific USB-to-Serial Comm Port(COMx) --AP 3xx series
+
         """
         #Insert text box for 1st tab
         intro_textbox = ctk.CTkTextbox(self.tab_1, wrap=tk.WORD, height=20)
@@ -94,11 +103,20 @@ class APNamerGUI(ctk.CTk):
         intro_textbox.configure(state=tk.DISABLED)
         intro_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
-        #Insert text box for 3rd tab
-        manual_override_text = ctk.CTkTextbox(self.tab_3, wrap = tk.WORD, height=20)
-        manual_override_text.insert(tk.END, manual_override_text)
-        manual_override_text.configure(state=tk.DISABLED)
-        manual_override_text.pack(fill=tk.BOTH, expand = True, padx=20, pady=10) 
+       # Insert text box for 3rd tab
+        manual_override_textbox = ctk.CTkTextbox(self.tab_3, wrap=tk.WORD, height=10)
+        manual_override_textbox.insert(tk.END, manual_override_text)
+        manual_override_textbox.configure(state=tk.DISABLED)
+        manual_override_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=(20, 0), side=tk.TOP)  # Pack at the top with padding
+
+        # Calculate half the window width
+        half_width = self.tab_3.winfo_reqwidth() // 2
+
+        # Calculate the center of the window
+        x_center = half_width // 2
+
+        override_frame = ctk.CTkFrame(self.tab_3)
+        override_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER, y=half_width, x = x_center)  # Place at the center below the textbox
 
         self.excel_button = ctk.CTkButton(self.tab_2, text="Select Excel File", command=self.select_excel_file)
         self.excel_button.pack(pady=4)
@@ -111,8 +129,8 @@ class APNamerGUI(ctk.CTk):
         self.output_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
         ##Input dialog/button for 3rd tab
-        self.override = ctk.CTkButton(self, text="Override", command=input)
-        self.override.pack(pady=40)
+        self.override_button = ctk.CTkButton(override_frame, text="Override", command=self.input)
+        self.override_button.pack()  # Pack in the center
     
         self.com_port_thread = threading.Thread(target=self.check_com_ports)
         self.com_port_thread.daemon = True
@@ -136,22 +154,29 @@ class APNamerGUI(ctk.CTk):
             
     def input(self):
             dialog = ctk.CTkInputDialog(text="Type in COM port", title="Override Dialog",
-		        fg_color="white",
-		        button_fg_color="red",
-		        button_hover_color="pink",
+		        fg_color="gray",
+		        button_fg_color="blue",
+		        button_hover_color="green",
 		        button_text_color="black",
-		        entry_fg_color="green",
-		        entry_border_color="red",
+		        entry_fg_color="dark gray",
+		        entry_border_color="black",
 		        entry_text_color="black"
             )
             self.com_port = dialog.get_input()
+            self.Override_Used = True
+            self.update_output("Overridden, you are now using: " + self.com_port)
 
     def restart(self):
         # Clear the output textbox
         self.output_textbox.delete(1.0, tk.END)
         # Restart the application with the same Excel file and COM port
+        #Verify user has selected Excel file and that a COM port has been decided
+        if self.com_port == None:
+                self.input()
+        if self.file_path == None:
+            self.select_excel_file()
+
         self.start_serial(self.com_port, self.file_path)
-        self.check_com_ports()
 
     def select_excel_file(self):
         file_path = filedialog.askopenfilename(title="Select Excel file", filetypes=[("Excel Files", "*.xlsx")])
@@ -166,6 +191,8 @@ class APNamerGUI(ctk.CTk):
         self.output_textbox.see(tk.END)
 
     def check_com_ports(self):
+        if self.Override_Used:
+            return
         first_instance_find_com = True
         first_instance_no_com=True
         while True:
@@ -184,8 +211,6 @@ class APNamerGUI(ctk.CTk):
     def process_excel_file(self, file_path):
         if self.com_port:
             self.start_serial(self.com_port, file_path)
-        else:
-            self.update_output("No COM port found. Exiting...")
 
 
     #Use powershell script to find COM port and strip result to use 'COMx'
@@ -225,6 +250,7 @@ class APNamerGUI(ctk.CTk):
                 print(f"Error: {e}")
                 return None
         else:
+            time.sleep(1)
             pass
 
     #Look for columns MAC, AP Name, and AP Group
@@ -280,12 +306,12 @@ class APNamerGUI(ctk.CTk):
                         actualMac = match.group(1)
                     
                     #Pass name, group, MAC and activate buttons
-                    self.toggleButtons(self.tab_1, self.tab_2)
+                    self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
                     self.update_output("Extracted name: " + actualName + "\n" + "Extracted group: " + actualGroup + "\n" + "Extracted MAC: " + actualMac)
                 break
         else:
             self.update_output("MAC address not found in the Excel file.")
-            self.toggleButtons(self.tab_1, self.tab_2)
+            self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
 
 
     #Load Excel file
@@ -298,7 +324,8 @@ class APNamerGUI(ctk.CTk):
             wb = load_workbook(file_path, read_only=True)
             self.file_path = file_path  # Store the file path
             self.update_idletasks()  # Force GUI update
-            self.toggleButtons(self.tab_1, self.tab_2)
+            self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
+            
 
             with serial.Serial(com_port, baudrate=9600, timeout=1) as ser:
                 no_data_prompt_printed = False
@@ -340,11 +367,11 @@ class APNamerGUI(ctk.CTk):
                     
                 else:
                     self.update_output("MAC address not found in the printenv response.")
-                    self.toggleButtons(self.tab_1, self.tab_2)
+                    self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
 
         except Exception as e:
-            self.update_output(f"Error reading Excel file: {str(e)}")
-            self.toggleButtons(self.tab_1, self.tab_2)
+            self.update_output(f"Error: {str(e)}")
+            self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
 
 
 if __name__ == "__main__":
