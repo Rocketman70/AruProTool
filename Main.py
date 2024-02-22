@@ -8,8 +8,8 @@ import customtkinter as ctk
 import tkinter as tk
 import threading
 import re
-import pyautogui
 from PIL import Image, ImageTk
+import sys
 
 # Define CustomTkinter class with necessary methods and attributes
 class CustomTkinter:
@@ -44,10 +44,9 @@ class CustomTkinter:
 
 # Define APNamerGUI class inheriting from ctk.CTk
 class APNamerGUI(ctk.CTk):
-    screen_width, screen_height = pyautogui.size()
 
-    WIDTH = screen_width // 2
-    HEIGHT = screen_height // 2 
+    WIDTH = 800
+    HEIGHT = 900 
 
     def __init__(self):
         super().__init__()
@@ -62,8 +61,9 @@ class APNamerGUI(ctk.CTk):
         self.tabControl = ctk.CTkTabview(self)
         self.tabControl.pack(expand=1, fill="both")
 
-        self.tab_1 = self.tabControl.add("Intro")
+        self.tab_1 = self.tabControl.add("Info")
         self.tab_2 = self.tabControl.add("Excel/Output")
+        self.tab_3 = self.tabControl.add("Manual Port")
 
         self.com_port = None
         self.file_path = None  # Store the current Excel file path
@@ -83,10 +83,22 @@ class APNamerGUI(ctk.CTk):
 
         """
 
-        intro_textbox = ctk.CTkTextbox(self.tab_1, font=("Lucida Console", 16), wrap=tk.WORD, height=20)
+        manual_override_text = """
+        This is for if the program is trying to use the incorrect COM port or one that is already in use.
+
+        Windows users should type COMx, eg. COM1,COM2 - all uppercase, no whitespaces.
+        """
+        #Insert text box for 1st tab
+        intro_textbox = ctk.CTkTextbox(self.tab_1, wrap=tk.WORD, height=20)
         intro_textbox.insert(tk.END, intro_text)
         intro_textbox.configure(state=tk.DISABLED)
         intro_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        #Insert text box for 3rd tab
+        manual_override_text = ctk.CTkTextbox(self.tab_3, wrap = tk.WORD, height=20)
+        manual_override_text.insert(tk.END, manual_override_text)
+        manual_override_text.configure(state=tk.DISABLED)
+        manual_override_text.pack(fill=tk.BOTH, expand = True, padx=20, pady=10) 
 
         self.excel_button = ctk.CTkButton(self.tab_2, text="Select Excel File", command=self.select_excel_file)
         self.excel_button.pack(pady=4)
@@ -94,28 +106,45 @@ class APNamerGUI(ctk.CTk):
         self.restart_button = ctk.CTkButton(self.tab_2, text="Restart", command= self.restart)
         self.restart_button.pack(pady=4)
         
-        self.output_textbox = ctk.CTkTextbox(self.tab_2, font=("Lucida Console", 16), wrap=tk.WORD, height=20)
+        self.output_textbox = ctk.CTkTextbox(self.tab_2, wrap=tk.WORD, height=20)
         self.output_textbox.configure(state=tk.NORMAL)
         self.output_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
+        ##Input dialog/button for 3rd tab
+        self.override = ctk.CTkButton(self, text="Override", command=input)
+        self.override.pack(pady=40)
+    
         self.com_port_thread = threading.Thread(target=self.check_com_ports)
         self.com_port_thread.daemon = True
         self.com_port_thread.start()
     
-    def toggleButtons(self, tab_1, tab_2):
+    def toggleButtons(self, tab_1, tab_2, tab_3):
         if self.Disabled:
             self.restart_button.configure(state=tk.ACTIVE)
             self.excel_button.configure(state=tk.ACTIVE)
             self.tabControl.configure(tab_2, state="normal")
             self.tabControl.configure(tab_1, state="normal")
+            self.tabControl.configure(tab_3, state="normal")
             self.Disabled = False
         else:
             self.excel_button.configure(state=tk.DISABLED)
             self.restart_button.configure(state=tk.DISABLED)
             self.tabControl.configure(tab_1, state="disabled")
             self.tabControl.configure(tab_2, state="disabled")
+            self.tabControl.configure(tab_3, state="disabled")
             self.Disabled = True
-
+            
+    def input(self):
+            dialog = ctk.CTkInputDialog(text="Type in COM port", title="Override Dialog",
+		        fg_color="white",
+		        button_fg_color="red",
+		        button_hover_color="pink",
+		        button_text_color="black",
+		        entry_fg_color="green",
+		        entry_border_color="red",
+		        entry_text_color="black"
+            )
+            self.com_port = dialog.get_input()
 
     def restart(self):
         # Clear the output textbox
@@ -161,7 +190,8 @@ class APNamerGUI(ctk.CTk):
 
     #Use powershell script to find COM port and strip result to use 'COMx'
     def find_com_port(self):
-        powershell_cmd = [
+        if sys.platform.startswith('win32'):
+            powershell_cmd = [
             'powershell.exe',
             '-Command',
             '''
@@ -178,22 +208,24 @@ class APNamerGUI(ctk.CTk):
                 Write-Output "USB Serial Port not found"
             }
             '''
-        ]
-        #Strip result logic
-        try:
-            result = subprocess.check_output(powershell_cmd, text=True)
-            lines = result.strip().split('\n')
-            for line in result.strip().split('\n'):
-                if "USB Serial Port" in line:
-                    com_port_index = line.find("(COM")
-                    if com_port_index != -1:
-                        com_port = line[com_port_index:].strip("() ")
-                        return com_port
-            else:
+            ]
+            #Strip result logic
+            try:
+                result = subprocess.check_output(powershell_cmd, text=True)
+                line = result.strip().split('\n')
+                for line in result.strip().split('\n'):
+                    if "USB Serial Port" in line:
+                        com_port_index = line.find("(COM")
+                        if com_port_index != -1:
+                            com_port = line[com_port_index:].strip("() ")
+                            return com_port
+                else:
+                    return None
+            except subprocess.CalledProcessError as e:
+                print(f"Error: {e}")
                 return None
-        except subprocess.CalledProcessError as e:
-            print(f"Error: {e}")
-            return None
+        else:
+            pass
 
     #Look for columns MAC, AP Name, and AP Group
     #Look for MAC row, give AP {name} {group} in MAC row, save 
