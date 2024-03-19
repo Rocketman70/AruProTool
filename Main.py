@@ -8,7 +8,6 @@ import customtkinter as ctk
 import tkinter as tk
 import threading
 import re
-from PIL import Image, ImageTk
 import sys
 
 # Define CustomTkinter class with necessary methods and attributes
@@ -63,7 +62,7 @@ class APNamerGUI(ctk.CTk):
         self.tabControl.pack(expand=1, fill="both")
 
         self.tab_1 = self.tabControl.add("Info")
-        self.tab_2 = self.tabControl.add("Excel/Output")
+        self.tab_2 = self.tabControl.add("Provision")
         self.tab_3 = self.tabControl.add("Manual Port")
 
         self.com_port = None
@@ -83,6 +82,8 @@ class APNamerGUI(ctk.CTk):
         
         *Clicking on the window during provisioning will cause a "Not responding" Windows prompt until the AP is provisioned
         *Use the manual port tab if AruProTool is not finding the COM port you have plugged in
+
+        *Purge tab is to remove prior configurations from APs, if provisioning, that is implemented as part of the naming process.
         """
 
         manual_override_text = """
@@ -125,6 +126,7 @@ class APNamerGUI(ctk.CTk):
         self.restart_button.pack(pady=4)
         
         self.output_textbox = ctk.CTkTextbox(self.tab_2, wrap=tk.WORD, height=20)
+        
         self.output_textbox.configure(state=tk.NORMAL)
         self.output_textbox.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
@@ -199,11 +201,13 @@ class APNamerGUI(ctk.CTk):
             self.com_port = self.find_com_port()
             if self.com_port and first_instance_find_com:
                 self.update_output("COM Port found: " + self.com_port)
+                #self.purge_status_label.configure(text="COM Port: " + self.com_port)
                 first_instance_find_com = False
             if self.com_port:
                 break
             if first_instance_no_com == True:
                 self.update_output("No COM Port found")
+                #self.purge_status_label.configure(text="COM Port: Not Detected")
                 first_instance_no_com = False
             else: 
                 pass
@@ -259,11 +263,13 @@ class APNamerGUI(ctk.CTk):
     #Look for MAC row, give AP {name} {group} in MAC row, save 
     #Give the user the results
     def process_mac(self, mac_to_match, com_port, wb):
-
         sheet = wb.active
-        headers = {cell.value: cell.column for cell in sheet[1]}
+        headers = {}
+        for cell in sheet[1]:
+            if cell.value:
+                headers[cell.value] = cell.column
 
-        #Edit column names here
+        # Edit column names here
         mac_column_index = headers.get("MAC")
         name_column_index = headers.get("AP Name")
         group_column_index = headers.get("AP Group")
@@ -273,11 +279,17 @@ class APNamerGUI(ctk.CTk):
             return
 
         for row in sheet.iter_rows(min_row=2, values_only=True):
-            if row[mac_column_index - 1] == mac_to_match:
+            print("Row:", row)
+            if row[mac_column_index - 1] == mac_to_match and row[mac_column_index - 1] is not None:
                 name = row[name_column_index - 1]
                 group = row[group_column_index - 1]
 
-                with serial.Serial(com_port, baudrate=9600, timeout=1) as ser:
+                #Configuration of serial is based off: https://community.arubanetworks.com/discussion/console-port-on-ap-515-no-response 
+                with serial.Serial(com_port, baudrate=9600, timeout=1, parity=serial.PARITY_NONE, bytesize=8, stopbits=1, xonxoff=False, rtscts=False, dsrdtr=False) as ser:
+                    ser.write(f"purgeenv\r\n".encode())
+                    time.sleep(1)
+
+                    ser.write(f"saveenv\r\n".encode())
                     time.sleep(1)
 
                     ser.write(f"set name {name}\r\n".encode())
@@ -287,39 +299,36 @@ class APNamerGUI(ctk.CTk):
                     time.sleep(1)
 
                     ser.write(b"saveenv \r\n")
+                    self.update_output("Sent commands...")
                     time.sleep(2)
 
                     ser.write(b"printenv \r\n")
                     time.sleep(1)
 
-                    #Give provided name/group/mac : source : AP
+                    # Give provided name/group/mac : source : AP
                     response = ser.read_all().decode()
 
                     match = re.search(r'\bname=([^\n]+)', response)
                     if match:
                         actualName = match.group(1)
-                    
+
                     match = re.search(r'\bgroup=([^\n]+)', response)
                     if match:
                         actualGroup = match.group(1)
-                    
+
                     match = re.search(r'\bethaddr=([^\n]+)', response)
                     if match:
                         actualMac = match.group(1)
-                    
-                    #Pass name, group, MAC and activate buttons
+
+                    # Pass name, group, MAC and activate buttons
                     self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
                     self.update_output("Extracted name: " + actualName + "\n" + "Extracted group: " + actualGroup + "\n" + "Extracted MAC: " + actualMac)
+                    self.update_output("\n\n AP Successfully Provisioned.")
                 break
         else:
             self.update_output("MAC address not found in the Excel file.")
             self.toggleButtons(self.tab_1, self.tab_2, self.tab_3)
 
-
-    #Load Excel file
-    #Open COM
-    #Stop the autoboot
-    #Find MAC and pass 
     def start_serial(self, com_port, file_path):
         
         try:
