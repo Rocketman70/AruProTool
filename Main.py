@@ -279,13 +279,15 @@ class APNamerGUI(ctk.CTk):
             return
 
         for row in sheet.iter_rows(min_row=2, values_only=True):
-            print("Row:", row)
             if row[mac_column_index - 1] == mac_to_match and row[mac_column_index - 1] is not None:
                 name = row[name_column_index - 1]
                 group = row[group_column_index - 1]
 
                 #Configuration of serial is based off: https://community.arubanetworks.com/discussion/console-port-on-ap-515-no-response 
                 with serial.Serial(com_port, baudrate=9600, timeout=1, parity=serial.PARITY_NONE, bytesize=8, stopbits=1, xonxoff=False, rtscts=False, dsrdtr=False) as ser:
+
+                    self.update_output("You are using COM port:" + com_port)
+
                     ser.write(f"purgeenv\r\n".encode())
                     time.sleep(1)
 
