@@ -74,6 +74,8 @@ class APNamerGUI(ctk.CTk):
         intro_text = """
         Welcome to AP Namer!
 
+        -Click to provisioning tab
+
         1. Plug in serial cable to computer
         2. Select Excel file in next tab
         3. Plug serial cable into AP
@@ -83,7 +85,6 @@ class APNamerGUI(ctk.CTk):
         *Clicking on the window during provisioning will cause a "Not responding" Windows prompt until the AP is provisioned
         *Use the manual port tab if AruProTool is not finding the COM port you have plugged in
 
-        *Purge tab is to remove prior configurations from APs, if provisioning, that is implemented as part of the naming process.
         """
 
         manual_override_text = """
@@ -122,7 +123,7 @@ class APNamerGUI(ctk.CTk):
         self.excel_button = ctk.CTkButton(self.tab_2, text="Select Excel File", command=self.select_excel_file)
         self.excel_button.pack(pady=4)
         
-        self.restart_button = ctk.CTkButton(self.tab_2, text="Restart", command= self.restart)
+        self.restart_button = ctk.CTkButton(self.tab_2, text="Next AP", command= self.restart)
         self.restart_button.pack(pady=4)
         
         self.output_textbox = ctk.CTkTextbox(self.tab_2, wrap=tk.WORD, height=20)
