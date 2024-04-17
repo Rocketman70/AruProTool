@@ -9,6 +9,7 @@ import tkinter as tk
 import threading
 import re
 import sys
+import glob
 
 # Define CustomTkinter class with necessary methods and attributes
 class CustomTkinter:
@@ -257,8 +258,16 @@ class APNamerGUI(ctk.CTk):
                 print(f"Error: {e}")
                 return None
         else:
-            time.sleep(1)
-            pass
+            #Linux support:
+            port_list = glob.glob('/dev/ttyUSB*')
+
+            if not port_list:
+                self.update_output("No COM port found")
+            else:
+                port_name = port_list[0]
+                return port_name           
+
+
 
     #Look for columns MAC, AP Name, and AP Group
     #Look for MAC row, give AP {name} {group} in MAC row, save 
